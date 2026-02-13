@@ -32,7 +32,7 @@ FEATURE_COLUMNS = [
 
 # Control flags
 TRAIN_NEW_MODEL = os.environ.get("TRAIN_NEW_MODEL", "true").lower() == "true"
-UPLOAD_MODEL_TO_HF = os.environ.get("UPLOAD_MODEL_TO_HF", "fasle").lower() == "true"
+UPLOAD_MODEL_TO_HF = os.environ.get("UPLOAD_MODEL_TO_HF", "false").lower() == "true"
 COMPARE_WITH_EXISTING = os.environ.get("COMPARE_WITH_EXISTING", "true").lower() == "true"
 DATA_WAS_UPDATED = os.environ.get("DATA_WAS_UPDATED", "false").lower() == "true"
 
