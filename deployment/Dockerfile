@@ -33,8 +33,9 @@ USER user
 EXPOSE 7860
 
 # Health check for container monitoring
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl --fail http://localhost:7860/_stcore/health || exit 1
+
 
 # Run Streamlit on port 7860 with production settings
 CMD ["streamlit", "run", "app.py", \
