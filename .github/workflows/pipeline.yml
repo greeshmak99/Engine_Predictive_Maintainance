@@ -1,0 +1,106 @@
+name: ML Pipeline - Engine Predictive Maintenance
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      use_presplit:
+        description: 'Use pre-split data from HF?'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      upload_data:
+        description: 'Upload new data to HF? (Auto-triggers model upload)'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      train_model:
+        description: 'Train model?'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      upload_model:
+        description: 'Force upload model? (Auto if data uploaded)'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  ml-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Data Preparation
+        id: data_prep
+        env:
+          HF_EN_TOKEN: ${{ secrets.HF_EN_TOKEN }}
+          USE_PRESPLIT_DATA: ${{ github.event.inputs.use_presplit || 'true' }}
+          UPLOAD_DATA_TO_HF: ${{ github.event.inputs.upload_data || 'false' }}
+        run: |
+          python model_building/data_prep.py
+          
+          # Set output for next step
+          if [ "${{ github.event.inputs.upload_data }}" == "true" ]; then
+            echo "data_updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "data_updated=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Model Training
+        env:
+          HF_EN_TOKEN: ${{ secrets.HF_EN_TOKEN }}
+          TRAIN_NEW_MODEL: ${{ github.event.inputs.train_model || 'true' }}
+          UPLOAD_MODEL_TO_HF: ${{ steps.data_prep.outputs.data_updated == 'true' && 'true' || github.event.inputs.upload_model || 'false' }}
+          COMPARE_WITH_EXISTING: ${{ steps.data_prep.outputs.data_updated == 'true' && 'false' || 'true' }}
+          DATA_WAS_UPDATED: ${{ steps.data_prep.outputs.data_updated }}
+        run: |
+          python model_building/model_prep.py
+
+      - name: Deploy to Hugging Face Space
+        env:
+          HF_EN_TOKEN: ${{ secrets.HF_EN_TOKEN }}
+        run: |
+          python hosting/hosting.py
+
+      - name: Pipeline Summary
+        run: |
+          echo "=========================================="
+          echo "PIPELINE EXECUTION SUMMARY"
+          echo "=========================================="
+          echo "Pre-split data: ${{ github.event.inputs.use_presplit || 'true' }}"
+          echo "Data updated: ${{ steps.data_prep.outputs.data_updated }}"
+          echo "Train model: ${{ github.event.inputs.train_model || 'true' }}"
+          echo "Upload model: ${{ steps.data_prep.outputs.data_updated == 'true' && 'true (auto)' || github.event.inputs.upload_model || 'false' }}"
+          echo "=========================================="
+          echo "✓ Data preparation completed"
+          echo "✓ Model pipeline completed"
+          echo "✓ App deployed to HF Space"
+          echo "=========================================="
